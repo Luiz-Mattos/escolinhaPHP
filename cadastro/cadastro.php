@@ -1,6 +1,13 @@
 <?php
+
 //Faz a requisição de dados paraconexão com o BD
-require_once 'dbconfig.php';
+if($_SERVER['SERVER_ADDR'] == '127.0.0.1')
+    require_once 'dbconfig.php';
+else
+    require_once 'dbconfigHostinger.php';
+//Inclusão da funcão que envia e-mail
+include_once 'emailConfirma.php';
+
 /*
  * Conexão com o banco de dados 
  */
@@ -10,9 +17,11 @@ try {//Criação do objeto $conn - conexão
 } catch (PDOException $pe) {
     die("Não foi possível se conectar ao banco $dbname :" . $pe->getMessage());
 }
+
 function gerarCodigo() {
     return sha1(mt_rand());
 }
+
 /**
  * Função que converte uma data no formato MySQL
  * AAAA-MM-DD HH:II:SS -> DD/MM/AAAA HH:II:SS
@@ -27,19 +36,23 @@ function converteDataMySQLPHP($dataMySQL){
     }
     return $dataPHP;
 }
+
 /**
  * Verifica se o botão cadastrar foi pressionado
  * 
  */
 if (isset($_POST['btn'])) {
+
     /**
      * Recepção de dados
      */
     if (isset($_POST['email']) && !empty($_POST['email'])) {
         //Filtragem de entrada ded dados
         //$email = $_POST['email']; //Não é correto
+
         $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
         $cod = gerarCodigo();
+
         //String SQL
         $sql = "INSERT INTO lista(email,cod,dtCadastro) "
                 . "values(:email,:cod,now())";
@@ -47,6 +60,21 @@ if (isset($_POST['btn'])) {
             ':cod' => $cod);
         $p = $conn->prepare($sql);
         $q = $p->execute($parametros);
+
+        /*
+         * Envio de e-mail para confirmação
+         */
+         //Link para ser enviado por e-mail
+            $link = "<a href='". $_SERVER['PHP_SELF'];
+             "?cod=e&hash=' title='Clique para confirmar o e-mail'>";          
+             "Clique para confirmar seu e-mail";
+             "</a>";
+            
+            emailConfirma($email,$link);
+        /*
+         * ----------------------------------------------------------------
+         */
+        
         //Listagem de e-mails
         header('Location: cadastro.php?cod=listar');
         
@@ -60,13 +88,16 @@ if (isset($_POST['btn'])) {
         header('Location: index.php');
     }
 } elseif (isset($_GET['cod'])) {
+
     if ($_GET['cod'] == 'listar') {
         //LISTAGEM DE E-MAILS
         // select * from lista // desaconselhado
         $sql = "SELECT email,cod,situacao,dtCadastro,dtAtualizacao "
                 . "from lista";
+
         $q = $conn->query($sql);
         $q->setFetchMode(PDO::FETCH_ASSOC);
+
         while ($r = $q->fetch()) {
             //desmpilhando os pratos
             echo "<p style='color:";
@@ -79,11 +110,13 @@ if (isset($_POST['btn'])) {
             echo $r['cod'];
             echo "</a>" . "\t";
             
-            //envio de e-mail
-            $link = "<a href='". $_SERVER['PHP_SELF'];
-            $link .= "?cod=e&hash=$r[cod]' title='Clique para confirmar o e-mail'>";
+            //Link para ser enviado por e-mail
+            $link = "<a href='";
+            $link .= $_SERVER['PHP_SELF'];
+            $link .= "?cod=e&hash=$r[cod]' title='Clique para confirmar o e-mail'>";          
             $link .= $r['situacao'] . "\t";
-            $link .= "</a>";
+            $link .= "</a> \t";
+            
             echo $link;
             
             echo converteDataMySQLPHP($r['dtCadastro']) . "\t";
@@ -91,6 +124,7 @@ if (isset($_POST['btn'])) {
             echo "</p>\n";
         }
     }
+
     //Exclusão de um registro
     elseif($_GET['cod'] == 'd' && isset ($_GET['hash'])){
         $sql = "delete from lista where cod = :hash";
@@ -103,8 +137,9 @@ if (isset($_POST['btn'])) {
         
         header("Location: cadastro.php?cod=listar");
     }
-        //Atualização da situação cadastral
-        //confirmação de e-mail
+    
+    //Atualizaçao da situação cadastral
+    //confirmação de email
     elseif($_GET['cod'] == 'e' && isset ($_GET['hash'])){
         $sql = "update lista set situacao=1, dtAtualizacao = now() where cod = :hash";
         $hash = filter_input(INPUT_GET, 'hash', FILTER_SANITIZE_STRING);
