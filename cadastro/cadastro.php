@@ -77,9 +77,15 @@ if (isset($_POST['btn'])) {
             //Link de exclusão
             echo "<a href='cadastro.php?cod=d&hash=$r[cod]' title='Clique para excluir'>";
             echo $r['cod'];
-            echo "</a>";
+            echo "</a>" . "\t";
             
-            echo $r['situacao'] . "\t";
+            //envio de e-mail
+            $link = "<a href='". $_SERVER['PHP_SELF'];
+            $link .= "?cod=e&hash=$r[cod]' title='Clique para confirmar o e-mail'>";
+            $link .= $r['situacao'] . "\t";
+            $link .= "</a>";
+            echo $link;
+            
             echo converteDataMySQLPHP($r['dtCadastro']) . "\t";
             echo converteDataMySQLPHP($r['dtAtualizacao']);
             echo "</p>\n";
@@ -88,6 +94,19 @@ if (isset($_POST['btn'])) {
     //Exclusão de um registro
     elseif($_GET['cod'] == 'd' && isset ($_GET['hash'])){
         $sql = "delete from lista where cod = :hash";
+        $hash = filter_input(INPUT_GET, 'hash', FILTER_SANITIZE_STRING);
+        
+        //echo "<h1>$hash</h1>";
+        
+        $p = $conn->prepare($sql);
+        $q = $p->execute(array(':hash'=>$hash));
+        
+        header("Location: cadastro.php?cod=listar");
+    }
+        //Atualização da situação cadastral
+        //confirmação de e-mail
+    elseif($_GET['cod'] == 'e' && isset ($_GET['hash'])){
+        $sql = "update lista set situacao=1, dtAtualizacao = now() where cod = :hash";
         $hash = filter_input(INPUT_GET, 'hash', FILTER_SANITIZE_STRING);
         
         //echo "<h1>$hash</h1>";
